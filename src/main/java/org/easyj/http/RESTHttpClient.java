@@ -20,8 +20,8 @@ import org.apache.commons.httpclient.methods.PostMethod;
 import org.apache.commons.httpclient.methods.PutMethod;
 import org.apache.commons.httpclient.methods.StringRequestEntity;
 import org.apache.commons.httpclient.methods.TraceMethod;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Class that wraps HttpClient and HttpMethodBase in the same place.
@@ -31,10 +31,7 @@ import org.apache.commons.logging.LogFactory;
  */
 public class RESTHttpClient {
 
-    /**
-     * Logger
-     */
-    protected final Log logger = LogFactory.getLog(getClass());
+    protected final Logger logger = LoggerFactory.getLogger(getClass());
 
     private HttpClient client;
     private HttpMethodBase method;
@@ -338,10 +335,10 @@ public class RESTHttpClient {
                 responseBody = method.getResponseBodyAsString();
             }
         } catch (HttpException ex) {
-            logger.error("HttpException: problem executing HTTP Request: [uri:" + method + "]", ex);
+            logger.error("HttpException: problem executing HTTP Request: [{}]", method, ex);
             exception = ex;
         } catch (IOException ex) {
-            logger.error("IOException: problem executing HTTP Request or trying to read the Response: [uri:" + method + "]", ex);
+            logger.error("IOException: problem executing HTTP Request or trying to read the Response: [{}]", method, ex);
             exception = ex;
         }
         return this;
@@ -356,7 +353,7 @@ public class RESTHttpClient {
         try {
             method.setURI(new URI(buildURI(uri), false));
         } catch (URIException ex) {
-            logger.error("Could not build the desired URI: [uri:" + uri + "]", ex);
+            logger.error("Could not build the desired URI: [{}]", uri, ex);
         }
     }
 

@@ -9,8 +9,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
 import org.apache.http.HttpStatus;
@@ -31,6 +29,8 @@ import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.message.BasicNameValuePair;
 import org.apache.http.protocol.HTTP;
 import org.apache.http.util.EntityUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Class that wraps HttpClient and HttpMethodBase in the same place.
@@ -40,10 +40,7 @@ import org.apache.http.util.EntityUtils;
  */
 public class EasyRESTHttpClient {
 
-    /**
-     * Logger
-     */
-    protected final Log logger = LogFactory.getLog(getClass());
+    protected final Logger logger = LoggerFactory.getLogger(getClass());
 
     private HttpClient client;
     private HttpRequestBase method;
@@ -359,11 +356,11 @@ public class EasyRESTHttpClient {
                 response = client.execute(method);
             }
         } catch (ClientProtocolException ex) {
-            logger.error("Http Error while trying to connect to [" + method.getURI().toString() + "]", ex);
-            setException("Http Error while trying to connect to [" + method.getURI().toString() + "]", ex);
+            logger.error("Http Error while trying to connect to [{}]", method.getURI(), ex);
+            setException("Http Error while trying to connect to [" + method.getURI() + "]", ex);
         } catch (IOException ex) {
-            logger.error("IO Error while trying to connect to [" + method.getURI().toString() + "]", ex);
-            setException("IO Error while trying to connect to [" + method.getURI().toString() + "]", ex);
+            logger.error("IO Error while trying to connect to [{}]", method.getURI(), ex);
+            setException("IO Error while trying to connect to [" + method.getURI() + "]", ex);
         }
         return this;
     }
@@ -380,9 +377,9 @@ public class EasyRESTHttpClient {
                 responseString = EntityUtils.toString(responseEntity);
                 responseEntity.getContent().close();
             } catch(IOException ex) {
-                logger.error("Problem consuming entity as String: [" + this.uri + "]");
+                logger.error("Problem consuming entity as String: [{}]", this.uri);
             } catch(IllegalArgumentException ex) {
-                logger.error("Problem consuming entity as String: [" + this.uri + "] - Entity null or too big");
+                logger.error("Problem consuming entity as String: [{}] - Entity null or too big", this.uri);
             }
         }
         return responseString;
@@ -398,7 +395,7 @@ public class EasyRESTHttpClient {
             this.uri = uri;
             method.setURI(new URI(buildURI(uri)));
         } catch (URISyntaxException ex) {
-            logger.error("Could not build the desired URI: [uri:" + uri + "]", ex);
+            logger.error("Could not build the desired URI: [{}]", uri, ex);
         }
     }
 
@@ -447,7 +444,7 @@ public class EasyRESTHttpClient {
                     req.setEntity(new UrlEncodedFormEntity(prepareParameters(), HTTP.UTF_8));
                 }
             } catch (UnsupportedEncodingException ex) {
-                logger.error("Encoding Not Supported: ", ex);
+                logger.error("Encoding Not Supported while setting entity parameters: ", ex);
             }
         } else {
             setMethodQueryString(toQueryString(parameters));
