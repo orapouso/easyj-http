@@ -10,9 +10,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.apache.http.HttpEntity;
+import org.apache.http.HttpRequest;
 import org.apache.http.HttpResponse;
 import org.apache.http.HttpStatus;
 import org.apache.http.NameValuePair;
+import org.apache.http.ProtocolException;
 import org.apache.http.client.ClientProtocolException;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.entity.UrlEncodedFormEntity;
@@ -26,8 +28,10 @@ import org.apache.http.client.methods.HttpPut;
 import org.apache.http.client.methods.HttpRequestBase;
 import org.apache.http.client.methods.HttpTrace;
 import org.apache.http.impl.client.DefaultHttpClient;
+import org.apache.http.impl.client.DefaultRedirectStrategy;
 import org.apache.http.message.BasicNameValuePair;
 import org.apache.http.protocol.HTTP;
+import org.apache.http.protocol.HttpContext;
 import org.apache.http.util.EntityUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -47,6 +51,8 @@ public class EasyRESTHttpClient {
     private HttpResponse response;
     private Map<String, Object> requestHeaders;
     private Map<String, Object> parameters;
+    private List<Integer> ignoreRedirectStatuses;
+    private boolean ignoreRedirect;
     private HttpEntity entity;
     private String uri;
 
@@ -61,10 +67,26 @@ public class EasyRESTHttpClient {
          client = new DefaultHttpClient();
          requestHeaders = new HashMap<String, Object>();
          parameters = new HashMap<String, Object>();
+         ignoreRedirectStatuses = new ArrayList<Integer>();
          response = null;
          entity = null;
          exception = null;
          responseString = "";
+         
+         ((DefaultHttpClient) client).setRedirectStrategy(new DefaultRedirectStrategy(){
+             @Override
+             public boolean isRedirected(HttpRequest request, HttpResponse response, HttpContext context)  {
+                boolean isRedirect = false;
+                int responseCode = response.getStatusLine().getStatusCode();
+                if(!isIgnoreRedirect() && !ignoreRedirectStatuses.contains(responseCode)) {
+                    try {
+                        isRedirect = super.isRedirected(request, response, context);
+                    } catch (ProtocolException e) {}
+                }
+                
+                return isRedirect;
+            }
+         });
     }
 
     /**
@@ -383,6 +405,35 @@ public class EasyRESTHttpClient {
             }
         }
         return responseString;
+    }
+    
+    /**
+     * Sets the statuses not to redirect
+     *
+     * @param status HttpStatus to ignore redirect
+     */
+    public EasyRESTHttpClient ignoreRedirect(int status) {
+        ignoreRedirectStatuses.add(status);
+        return this;
+    }
+
+    /**
+     * Globally ignores all redirect statuses
+     * 
+     * @return if globally ignoring all redirects
+     */
+    public boolean isIgnoreRedirect() {
+        return ignoreRedirect;
+    }
+
+    /**
+     * Sets whether to ignore all redirects
+     * 
+     * @param ignoreRedirect 
+     */    
+    public EasyRESTHttpClient setIgnoreRedirect(boolean ignoreRedirect) {
+        this.ignoreRedirect = ignoreRedirect;
+        return this;
     }
 
     /**
