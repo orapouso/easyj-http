@@ -45,6 +45,7 @@ import org.apache.http.client.methods.HttpRequestBase;
 import org.apache.http.client.methods.HttpTrace;
 import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.impl.client.DefaultRedirectStrategy;
+import org.apache.http.impl.conn.tsccm.ThreadSafeClientConnManager;
 import org.apache.http.message.BasicNameValuePair;
 import org.apache.http.protocol.HTTP;
 import org.apache.http.protocol.HttpContext;
@@ -59,7 +60,7 @@ import org.slf4j.LoggerFactory;
  * @author Rafael Raposo
  * @since 1.0.0
  */
-public class EasyRESTHttpClient {
+public class EasyHttpClient {
 
     protected final Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -72,27 +73,36 @@ public class EasyRESTHttpClient {
     private boolean ignoreRedirect;
     private HttpEntity entity;
     private String uri;
+    private ThreadSafeClientConnManager connManager;
 
     private Throwable exception;
     private String message;
     private String responseString;
+    private int maxConnections;
+    
+    public final static int DEFAULT_MAX_CONNECTIONS = 30;
+    
 
     /**
-     * Creates a new instance of EasyRESTHttpClient wrapping the HttpClient and Method in the same class.
+     * Creates a new instance of EasyHttpClient wrapping the HttpClient and Method in the same class.
      */
-    public EasyRESTHttpClient() {
-         client = new DefaultHttpClient();
-         requestHeaders = new HashMap<String, Object>();
-         parameters = new HashMap<String, Object>();
-         ignoreRedirectStatuses = new ArrayList<Integer>();
-         response = null;
-         entity = null;
-         exception = null;
-         responseString = "";
+    public EasyHttpClient(int maxConnections) {
+        this.maxConnections = maxConnections;
+        connManager = new ThreadSafeClientConnManager();
+        connManager.setMaxTotal(this.maxConnections);
+        
+        client = new DefaultHttpClient(connManager);
+        requestHeaders = new HashMap<String, Object>();
+        parameters = new HashMap<String, Object>();
+        ignoreRedirectStatuses = new ArrayList<Integer>();
+        response = null;
+        entity = null;
+        exception = null;
+        responseString = "";
          
-         ((DefaultHttpClient) client).setRedirectStrategy(new DefaultRedirectStrategy(){
-             @Override
-             public boolean isRedirected(HttpRequest request, HttpResponse response, HttpContext context)  {
+        ((DefaultHttpClient) client).setRedirectStrategy(new DefaultRedirectStrategy(){
+            @Override
+            public boolean isRedirected(HttpRequest request, HttpResponse response, HttpContext context)  {
                 boolean isRedirect = false;
                 int responseCode = response.getStatusLine().getStatusCode();
                 if(!isIgnoreRedirect() && !ignoreRedirectStatuses.contains(responseCode)) {
@@ -103,9 +113,12 @@ public class EasyRESTHttpClient {
                 
                 return isRedirect;
             }
-         });
+        });
     }
 
+    public EasyHttpClient() {
+        this(DEFAULT_MAX_CONNECTIONS);
+    }
     /**
      * Adds a single header to the request
      *
@@ -113,7 +126,7 @@ public class EasyRESTHttpClient {
      * @param headerValue Request header value
      * @return own instance for chaining
      */
-    public EasyRESTHttpClient addRequestHeader(String headerName, Object headerValue) {
+    public EasyHttpClient addRequestHeader(String headerName, Object headerValue) {
         if(headerName != null && headerValue != null) {
             requestHeaders.put(headerName, headerValue);
         }
@@ -126,7 +139,7 @@ public class EasyRESTHttpClient {
      * @param headerPairs header pair in format: headerName=headerValue
      * @return own instance for chaining
      */
-    public EasyRESTHttpClient addRequestHeaders(String... headerPairs) {
+    public EasyHttpClient addRequestHeaders(String... headerPairs) {
         addRequestHeaders(toMap(headerPairs));
         return this;
     }
@@ -137,7 +150,7 @@ public class EasyRESTHttpClient {
      * @param headerPairs {@code List<String>} of header pairs in format: headerName=headerValue
      * @return own instance for chaining
      */
-    public EasyRESTHttpClient addRequestHeaders(List<String> headerPairs) {
+    public EasyHttpClient addRequestHeaders(List<String> headerPairs) {
         addRequestHeaders(toMap(headerPairs));
         return this;
     }
@@ -150,7 +163,7 @@ public class EasyRESTHttpClient {
      * The value can be any object. It will be validated as headerValue.toString()
      * @return own instance for chaining
      */
-    public EasyRESTHttpClient addRequestHeaders(Map<String, Object> headerPairs) {
+    public EasyHttpClient addRequestHeaders(Map<String, Object> headerPairs) {
         if(headerPairs != null) {
             for(String key : headerPairs.keySet()) {
                 addRequestHeader(key, headerPairs.get(key));
@@ -167,7 +180,7 @@ public class EasyRESTHttpClient {
      * @param paramValue Parameter value
      * @return own instance for chaining
      */
-    public EasyRESTHttpClient addParameter(String paramName, Object paramValue) {
+    public EasyHttpClient addParameter(String paramName, Object paramValue) {
         if(paramName != null && !paramName.isEmpty() && paramValue != null) {
             this.parameters.put(paramName, paramValue);
         }
@@ -181,7 +194,7 @@ public class EasyRESTHttpClient {
      * @param param Parameter to be added
      * @return own instance for chaining
      */
-    public EasyRESTHttpClient addParameter(NameValuePair param) {
+    public EasyHttpClient addParameter(NameValuePair param) {
         if(param != null) {
             addParameter(param.getName(), param.getValue());
         }
@@ -197,7 +210,7 @@ public class EasyRESTHttpClient {
      * The value can be any object. It will be validated as paramValue.toString()
      * @return own instance for chaining
      */
-    public EasyRESTHttpClient addParameters(Map<String, Object> paramPairs) {
+    public EasyHttpClient addParameters(Map<String, Object> paramPairs) {
         if(paramPairs != null) {
             for(String key : paramPairs.keySet()) {
                 addParameter(key, paramPairs.get(key));
@@ -213,7 +226,7 @@ public class EasyRESTHttpClient {
      * @param paramPairs parameter pair in the format: paramName=paramValue
      * @return own instance for chaining
      */
-    public EasyRESTHttpClient addParameters(String... paramPairs) {
+    public EasyHttpClient addParameters(String... paramPairs) {
         addParameters(toMap(paramPairs));
         return this;
     }
@@ -225,7 +238,7 @@ public class EasyRESTHttpClient {
      * @param paramPairs {@code List<String>} of parameter pairs in the format: paramName=paramValue
      * @return own instance for chaining
      */
-    public EasyRESTHttpClient addParameters(List<String> paramPairs) {
+    public EasyHttpClient addParameters(List<String> paramPairs) {
         addParameters(toMap(paramPairs));
         return this;
     }
@@ -236,7 +249,7 @@ public class EasyRESTHttpClient {
      * @param headerNames {@code List<String>} of header names
      * @return own instance for chaining
      */
-    public EasyRESTHttpClient removeRequesHeaders(List<String> headerNames) {
+    public EasyHttpClient removeRequesHeaders(List<String> headerNames) {
         if(headerNames != null) {
             removeRequesHeaders(headerNames.toArray(new String[0]));
         }
@@ -249,7 +262,7 @@ public class EasyRESTHttpClient {
      * @param headerNames One or more header names to be removed
      * @return own instance for chaining
      */
-    public EasyRESTHttpClient removeRequesHeaders(String... headerNames) {
+    public EasyHttpClient removeRequesHeaders(String... headerNames) {
         if(headerNames != null) {
             for(String headerName : headerNames) {
                 requestHeaders.remove(headerName);
@@ -264,14 +277,14 @@ public class EasyRESTHttpClient {
      * @param paramNames {@code List<String>} of parameter names
      * @return own instance for chaining
      */
-    public EasyRESTHttpClient removeParameters(List<String> paramNames) {
+    public EasyHttpClient removeParameters(List<String> paramNames) {
         if(paramNames != null) {
             removeParameters(paramNames.toArray(new String[0]));
         }
         return this;
     }
 
-    public EasyRESTHttpClient setEntity(HttpEntity entity) {
+    public EasyHttpClient setEntity(HttpEntity entity) {
         this.entity = entity;
         return this;
     }
@@ -282,7 +295,7 @@ public class EasyRESTHttpClient {
      * @param paramNames One or more parameter names to be removed
      * @return own instance for chaining
      */
-    public EasyRESTHttpClient removeParameters(String... paramNames) {
+    public EasyHttpClient removeParameters(String... paramNames) {
         if(paramNames != null) {
             for(String paramName : paramNames) {
                 parameters.remove(paramName);
@@ -297,7 +310,7 @@ public class EasyRESTHttpClient {
      * @param uri Uri of the resource to be requested
      * @return The body response of the request as {@code String}
      */
-    public EasyRESTHttpClient get(String uri) {
+    public EasyHttpClient get(String uri) {
         method = new HttpGet();
         return execute(uri);
     }
@@ -308,7 +321,7 @@ public class EasyRESTHttpClient {
      * @param uri Uri of the resource to be requested
      * @return The body response of the request as {@code String}
      */
-    public EasyRESTHttpClient post(String uri) {
+    public EasyHttpClient post(String uri) {
         method = new HttpPost();
         return execute(uri);
     }
@@ -319,7 +332,7 @@ public class EasyRESTHttpClient {
      * @param uri Uri of the resource to be requested
      * @return The body response of the request as {@code String}
      */
-    public EasyRESTHttpClient put(String uri) {
+    public EasyHttpClient put(String uri) {
         method = new HttpPut();
         return execute(uri);
     }
@@ -330,7 +343,7 @@ public class EasyRESTHttpClient {
      * @param uri URI of the resource to be requested
      * @return The body response of the request as {@code String}
      */
-    public EasyRESTHttpClient delete(String uri) {
+    public EasyHttpClient delete(String uri) {
         method = new HttpDelete();
         return execute(uri);
     }
@@ -341,7 +354,7 @@ public class EasyRESTHttpClient {
      * @param uri URI of the resource to be requested
      * @return The body response of the request as {@code String}
      */
-    public EasyRESTHttpClient head(String uri) {
+    public EasyHttpClient head(String uri) {
         method = new HttpHead();
         return execute(uri);
     }
@@ -352,7 +365,7 @@ public class EasyRESTHttpClient {
      * @param uri URI of the resource to be requested
      * @return The body response of the request as {@code String}
      */
-    public EasyRESTHttpClient trace(String uri) {
+    public EasyHttpClient trace(String uri) {
         method = new HttpTrace();
         return execute(uri);
     }
@@ -363,7 +376,7 @@ public class EasyRESTHttpClient {
      * @param uri URI of the resource to be requested
      * @return The body response of the request as {@code String}
      */
-    public EasyRESTHttpClient options(String uri) {
+    public EasyHttpClient options(String uri) {
         method = new HttpOptions();
         return execute(uri);
     }
@@ -379,12 +392,12 @@ public class EasyRESTHttpClient {
      * @param uri URI of the resource to be requested
      * @return Wrapped response for the resource requested
      */
-    protected EasyRESTHttpClient execute(String uri) {
+    protected EasyHttpClient execute(String uri) {
 
         setURI(uri);
         setMethodRequestHeaders();
         setMethodParameters();
-
+        
         if (!method.containsHeader("Accept")) {
             method.addHeader("Accept", "application/json");
         }
@@ -428,7 +441,7 @@ public class EasyRESTHttpClient {
      *
      * @param status HttpStatus to ignore redirect
      */
-    public EasyRESTHttpClient ignoreRedirect(int status) {
+    public EasyHttpClient ignoreRedirect(int status) {
         ignoreRedirectStatuses.add(status);
         return this;
     }
@@ -447,7 +460,7 @@ public class EasyRESTHttpClient {
      * 
      * @param ignoreRedirect 
      */    
-    public EasyRESTHttpClient setIgnoreRedirect(boolean ignoreRedirect) {
+    public EasyHttpClient setIgnoreRedirect(boolean ignoreRedirect) {
         this.ignoreRedirect = ignoreRedirect;
         return this;
     }
@@ -708,7 +721,7 @@ public class EasyRESTHttpClient {
     private void setMessage(String message) {
         this.message = message;
     }
-
+    
     /**
      * Clears client leaving it like a new instance
      */

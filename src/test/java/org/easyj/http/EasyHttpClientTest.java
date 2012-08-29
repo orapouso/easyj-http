@@ -30,24 +30,24 @@ import org.junit.Test;
 import static org.junit.Assert.*;
 
 /**
- * Tests EasyRESTHttpClient
+ * Tests EasyHttpClient
  *
  * @author Rafael Raposo
  * @since 1.0.0
  */
-public class EasyRESTHttpClientTest {
+public class EasyHttpClientTest {
 
-    EasyRESTHttpClient client;
+    EasyHttpClient client;
 
     private final String VALID_NAME = "validName";
     private final String VALID_VALUE = "validValue";
 
-    public EasyRESTHttpClientTest() {
+    public EasyHttpClientTest() {
     }
 
     @Before
     public void setUp() {
-        client = new EasyRESTHttpClient();
+        client = new EasyHttpClient();
     }
 
     @After
@@ -627,7 +627,7 @@ public class EasyRESTHttpClientTest {
     }
 
     /**
-     * Test of removeParameters method, of class EasyRESTHttpClient.
+     * Test of removeParameters method, of class EasyHttpClient.
      */
     @Test
     public void testRemoveParameters_List() {
@@ -672,7 +672,7 @@ public class EasyRESTHttpClientTest {
     }
 
     /**
-     * Test of removeParameters method, of class EasyRESTHttpClient.
+     * Test of removeParameters method, of class EasyHttpClient.
      */
     @Test
     public void testRemoveParameters_StringArr() {
@@ -795,7 +795,7 @@ public class EasyRESTHttpClientTest {
     }
 
     /**
-     * Test of toMap method, of class EasyRESTHttpClient.
+     * Test of toMap method, of class EasyHttpClient.
      */
     @Test
     public void testToMap_StringArr() {
